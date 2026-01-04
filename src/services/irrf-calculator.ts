@@ -80,7 +80,7 @@ function calculateReduction(rt: number, ib: number): ReductionResult {
   };
 }
 
-function calculateTax(baseCalculation: number, rt: number): CalculationDetail {
+function calculateTax(baseCalculation: number, grossSalary: number): CalculationDetail {
   let accumulatedTax = 0;
   const bracketDetails = [];
 
@@ -113,7 +113,8 @@ function calculateTax(baseCalculation: number, rt: number): CalculationDetail {
     if (limit !== null) previousLimit = limit;
   }
   
-  const redutor = calculateReduction(rt, accumulatedTax);
+  // O Redutor é calculado com base na Remuneração Bruta
+  const redutor = calculateReduction(grossSalary, accumulatedTax);
   const netTax = Math.max(0, accumulatedTax - redutor.value);
 
   return {
@@ -123,7 +124,7 @@ function calculateTax(baseCalculation: number, rt: number): CalculationDetail {
     reductionValue: redutor.value,
     reductionExplanation: redutor.explanation,
     netTax,
-    effectiveRate: rt > 0 ? netTax / rt : 0,
+    effectiveRate: grossSalary > 0 ? netTax / grossSalary : 0,
     deductions: 0, // to be filled by caller context
     exemption65Value: 0 // to be filled by caller context
   };
@@ -133,21 +134,25 @@ export function calculateIRRF(input: CalculationInput): ComparisonResult {
   const rtRaw = input.grossSalary - input.socialSecurity - input.otherDeductions;
   const exemption65 = input.isRetiree65Plus ? EXEMPTION_65_PLUS : 0;
   
-  // Base applies exemption 65+ for both methods
-  const baseForCalculation = Math.max(0, rtRaw - exemption65);
+  // Base applies exemption 65+ for both methods (Isenção 65+ abate do rendimento bruto)
+  const grossAfterExemption = Math.max(0, input.grossSalary - exemption65);
   
-  // Full Calculation
+  // Full Calculation (Gross - Exemption - INSS - Other - Legal Deductions)
+  // rtRaw includes INSS and Other Deductions subtraction, so we use it as base
+  const baseForFull = Math.max(0, rtRaw - exemption65); 
   const legalDeductions = input.alimony + (input.dependents * DEPENDENT_DEDUCTION);
-  const bcFull = Math.max(0, baseForCalculation - legalDeductions);
-  const fullResult = calculateTax(bcFull, rtRaw);
-  fullResult.deductions = legalDeductions + exemption65;
+  const bcFull = Math.max(0, baseForFull - legalDeductions);
+  const fullResult = calculateTax(bcFull, input.grossSalary);
+  fullResult.deductions = legalDeductions + input.socialSecurity + input.otherDeductions + exemption65;
   fullResult.exemption65Value = exemption65;
 
-  // Simplified Calculation
-  const bcSimplified = Math.max(0, baseForCalculation - SIMPLIFIED_DEDUCTION);
-  const simplifiedResult = calculateTax(bcSimplified, rtRaw);
+  // Simplified Calculation (Gross - Exemption - Simplified Deduction)
+  // Replaces INSS, Alimony, Dependents, and Other Deductions
+  const bcSimplified = Math.max(0, grossAfterExemption - SIMPLIFIED_DEDUCTION);
+  const simplifiedResult = calculateTax(bcSimplified, input.grossSalary);
   simplifiedResult.deductions = SIMPLIFIED_DEDUCTION + exemption65;
   simplifiedResult.exemption65Value = exemption65;
+
   
   return {
     full: fullResult,
