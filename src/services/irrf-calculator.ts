@@ -142,14 +142,14 @@ export function calculateIRRF(input: CalculationInput): ComparisonResult {
   const baseForFull = Math.max(0, rtRaw - exemption65); 
   const legalDeductions = input.alimony + (input.dependents * DEPENDENT_DEDUCTION);
   const bcFull = Math.max(0, baseForFull - legalDeductions);
-  const fullResult = calculateTax(bcFull, input.grossSalary);
+  const fullResult = calculateTax(bcFull, grossAfterExemption);
   fullResult.deductions = legalDeductions + input.socialSecurity + input.otherDeductions + exemption65;
   fullResult.exemption65Value = exemption65;
 
   // Simplified Calculation (Gross - Exemption - Simplified Deduction)
   // Replaces INSS, Alimony, Dependents, and Other Deductions
   const bcSimplified = Math.max(0, grossAfterExemption - SIMPLIFIED_DEDUCTION);
-  const simplifiedResult = calculateTax(bcSimplified, input.grossSalary);
+  const simplifiedResult = calculateTax(bcSimplified, grossAfterExemption);
   simplifiedResult.deductions = SIMPLIFIED_DEDUCTION + exemption65;
   simplifiedResult.exemption65Value = exemption65;
 
